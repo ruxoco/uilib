@@ -1,3 +1,6 @@
+local _sGUI="MatrixHubUI"
+local _sHRP="HumanoidRootPart"
+local _sHUM="Humanoid"
 if getgenv and getgenv()._MATRIXHUB_LOADED then
 pcall(function()
 local old = game:GetService("CoreGui"):FindFirstChild(_sGUI);if old then old:Destroy() end;end);pcall(function()
@@ -14,13 +17,40 @@ if type(o)=="table" then for _,l in pairs(o) do pcall(function() l:Remove() end)
 else pcall(function() o:Remove() end) end
 end
 end;getgenv()._MATRIXHUB_ESP = {}
-end;local _UDim2=UDim2.new;local _Color3=Color3.fromRGB;local _C3=Color3.new;local _V2=Vector2.new;local _V3=Vector3.new;local _UDim=UDim.new;local _Inst=Instance.new;local _EUT=Enum.UserInputType;local _EKC=Enum.KeyCode;local _EES=Enum.EasingStyle;local _EED=Enum.EasingDirection
-local _EFA=Enum.Font;local _ETX=Enum.TextXAlignment;local _sHRP="HumanoidRootPart";local _sHUM="Humanoid";local _sGUI=_sGUI;local function _getHRP() local c=LocalPlayer.Character; if not c then return nil end; return c:FindFirstChild(_sHRP) end;local _NSK=NumberSequenceKeypoint.new
-local _CSK=ColorSequenceKeypoint.new;local _NS=NumberSequence.new;local _CS=ColorSequence.new;local _ESO=Enum.SortOrder;local _EFD=Enum.FillDirection;local _EAS=Enum.AutomaticSize;local _EZB=Enum.ZIndexBehavior;local _EHS=Enum.HumanoidStateType;local _BT1='BackgroundTransparency'
-local _BS0='BorderSizePixel';local _ABC='AutoButtonColor';local _UIS=UserInputService;local _IUT='UserInputType';local _IUT='UserInputType'
+end
+if not c then return nil end;return c:FindFirstChild(_sHRP) end
 end;if getgenv then
 getgenv()._MATRIXHUB_LOADED = true;getgenv()._MATRIXHUB_CONNECTIONS = {};getgenv()._MATRIXHUB_ESP = {}
-end;local MatrixHub = {};MatrixHub.__index = MatrixHub;local Players = game:GetService("Players");local TweenService = game:GetService("TweenService");local UserInputService = game:GetService("UserInputService");local RunService = game:GetService("RunService")
+
+end;local MatrixHub = {}
+local _UDim2=UDim2.new
+local _Color3=Color3.fromRGB
+local _C3=Color3.new
+local _V2=Vector2.new
+local _V3=Vector3.new
+local _UDim=UDim.new
+local _Inst=Instance.new
+local _EUT=Enum.UserInputType
+local _EKC=Enum.KeyCode
+local _EES=Enum.EasingStyle
+local _EED=Enum.EasingDirection
+local _EFA=Enum.Font
+local _ETX=Enum.TextXAlignment
+local _NSK=NumberSequenceKeypoint.new
+local _CSK=ColorSequenceKeypoint.new
+local _NS=NumberSequence.new
+local _CS=ColorSequence.new
+local _ESO=Enum.SortOrder
+local _EFD=Enum.FillDirection
+local _EAS=Enum.AutomaticSize
+local _EZB=Enum.ZIndexBehavior
+local _EHS=Enum.HumanoidStateType
+local _BT1='BackgroundTransparency'
+local _BS0='BorderSizePixel'
+local _ABC='AutoButtonColor'
+local _UIS=UserInputService
+local _IUT='UserInputType'
+;MatrixHub.__index = MatrixHub;local Players = game:GetService("Players");local TweenService = game:GetService("TweenService");local UserInputService = game:GetService("UserInputService");local RunService = game:GetService("RunService")
 local Lighting = game:GetService("Lighting");local LocalPlayer = Players.LocalPlayer;local Camera = workspace.CurrentCamera;local C = {
 WinBG = _Color3(15, 21, 35),
 HeaderBG = _Color3(19, 27, 42),
