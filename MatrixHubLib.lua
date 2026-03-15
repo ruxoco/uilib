@@ -1,3 +1,10 @@
+-- ============================================================
+--  MatrixHub UI Library  v5  |  loadstring-совместимая библиотека
+--  Использование:
+--    local MatrixHub = loadstring(game:HttpGet("URL_К_ЭТОМУ_ФАЙЛУ"))()
+--    local W = MatrixHub.new()
+-- ============================================================
+
 local MatrixHub = {}
 MatrixHub.__index = MatrixHub
 
@@ -5,9 +12,7 @@ local Players          = game:GetService("Players")
 local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService       = game:GetService("RunService")
-local Lighting         = game:GetService("Lighting")
 local LocalPlayer      = Players.LocalPlayer
-local Camera           = workspace.CurrentCamera
 
 -- ============================================================
 --  ЦВЕТА
@@ -52,16 +57,20 @@ local function Tween(o,props,t,style)
     TweenService:Create(o,TweenInfo.new(t or 0.15,style or Enum.EasingStyle.Quad,Enum.EasingDirection.Out),props):Play()
 end
 
-local function Draggable(frame,handle)
-    local drag,start,spos=false
+local function Draggable(frame, handle)
+    local drag,start,spos = false, nil, nil
     handle.InputBegan:Connect(function(i)
-        if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=true;start=i.Position;spos=frame.Position end
+        if i.UserInputType==Enum.UserInputType.MouseButton1 then
+            drag=true; start=i.Position; spos=frame.Position
+        end
     end)
     handle.InputEnded:Connect(function(i)
         if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=false end
     end)
     local last
-    handle.InputChanged:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseMovement then last=i end end)
+    handle.InputChanged:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseMovement then last=i end
+    end)
     UserInputService.InputChanged:Connect(function(i)
         if i==last and drag then
             local d=i.Position-start
@@ -70,18 +79,10 @@ local function Draggable(frame,handle)
     end)
 end
 
--- Иконка клавиатуры
-local function MakeKbIcon(parent)
-    local btn=New("Frame",{Size=UDim2.new(0,26,0,18),BackgroundColor3=C.KbtnBG,BorderSizePixel=0},parent)
-    Corner(4,btn);Stroke(C.KbtnBorder,1,btn)
-    for _,k in ipairs({{x=3,y=2},{x=7,y=2},{x=11,y=2},{x=15,y=2},{x=19,y=2},
-        {x=3,y=7},{x=7,y=7},{x=11,y=7},{x=15,y=7},{x=19,y=7},{x=6,y=12,w=13}}) do
-        New("Frame",{Size=UDim2.new(0,k.w or 3,0,3),Position=UDim2.new(0,k.x,0,k.y),BackgroundColor3=C.TextMuted,BorderSizePixel=0},btn)
-    end
-    return btn
-end
-
--- Кнопка кейбинда: показывает "None" до привязки, после — текст клавиши/кнопки мыши
+-- ============================================================
+--  КНОПКА КЕЙБИНДА
+--  Поддерживает: Keyboard, MB1, MB2, MB3, Forward (MB4), Back (MB5)
+-- ============================================================
 local function MakeKeybindBtn(parent, offX)
     local wrap = New("Frame",{
         Size=UDim2.new(0,42,0,22),
@@ -109,11 +110,58 @@ local function MakeKeybindBtn(parent, offX)
     return wrap, nil, keyTxt, click
 end
 
--- Закрыть колорпикер при клике вне его
+-- Определение имени клавиши/кнопки мыши для отображения в кейбинде
+local function GetInputName(inp)
+    if inp.UserInputType == Enum.UserInputType.Keyboard then
+        local n = tostring(inp.KeyCode):sub(14)
+        return (#n<=3 and n or n:sub(1,3)), inp.KeyCode
+    elseif inp.UserInputType == Enum.UserInputType.MouseButton1 then
+        return "MB1", "MB1"
+    elseif inp.UserInputType == Enum.UserInputType.MouseButton2 then
+        return "MB2", "MB2"
+    elseif inp.UserInputType == Enum.UserInputType.MouseButton3 then
+        return "MB3", "MB3"
+    elseif inp.UserInputType == Enum.UserInputType.MouseButton4 then
+        -- Forward кнопка мыши
+        return "FWD", "MB4"
+    elseif inp.UserInputType == Enum.UserInputType.MouseButton5 then
+        -- Back кнопка мыши
+        return "BCK", "MB5"
+    end
+    return nil, nil
+end
+
+-- Проверка нажата ли клавиша/кнопка мыши по сохранённому ключу
+local function IsKeyActive(key)
+    if not key then return false end
+    if key == "MB1" then return UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+    elseif key == "MB2" then return UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
+    elseif key == "MB3" then return UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton3)
+    elseif key == "MB4" then return UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton4)
+    elseif key == "MB5" then return UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton5)
+    else return UserInputService:IsKeyDown(key) end
+end
+
+-- Совпадение события InputBegan с сохранённым ключом
+local function InputMatchesKey(inp, key)
+    if not key then return false end
+    if key == "MB1" then return inp.UserInputType == Enum.UserInputType.MouseButton1
+    elseif key == "MB2" then return inp.UserInputType == Enum.UserInputType.MouseButton2
+    elseif key == "MB3" then return inp.UserInputType == Enum.UserInputType.MouseButton3
+    elseif key == "MB4" then return inp.UserInputType == Enum.UserInputType.MouseButton4
+    elseif key == "MB5" then return inp.UserInputType == Enum.UserInputType.MouseButton5
+    else return inp.UserInputType == Enum.UserInputType.Keyboard and inp.KeyCode == key end
+end
+
+-- ============================================================
+--  КОЛОРПИКЕР
+-- ============================================================
+local _cpWin    = nil
+local _cpActive = nil
+
 UserInputService.InputBegan:Connect(function(inp)
     if inp.UserInputType == Enum.UserInputType.MouseButton1 then
         if _cpActive and _cpActive.Parent then
-            -- Проверяем что клик был вне попапа
             local ap = _cpActive.AbsolutePosition
             local as = _cpActive.AbsoluteSize
             local mp = UserInputService:GetMouseLocation()
@@ -125,18 +173,13 @@ UserInputService.InputBegan:Connect(function(inp)
     end
 end)
 
--- Колорпикер — попап рендерится на Win чтобы не обрезался ClipsDescendants
--- Win передаётся позже через замыкание, поэтому используем глобальную переменную _cpWin
-local _cpWin = nil  -- для колорпикера
-local _cpActive = nil  -- глобально открытый попап колорпикера
-
 local function MakeColorPicker(parent, offX, initColor, onChange)
     local color = initColor or Color3.fromRGB(0,255,0)
     local hue, sat, val2 = Color3.toHSV(color)
 
-    -- Маленький квадрат-превью в строке
     local box = New("Frame",{
-        Size=UDim2.new(0,18,0,18), Position=UDim2.new(1,offX,0.5,-9),
+        Size=UDim2.new(0,18,0,18),
+        Position=UDim2.new(1,offX,0.5,-9),
         BackgroundColor3=color, BorderSizePixel=0, ZIndex=4,
     },parent)
     Corner(4,box); Stroke(C.KbtnBorder,1,box)
@@ -156,29 +199,23 @@ local function MakeColorPicker(parent, offX, initColor, onChange)
     clickBtn.MouseButton1Click:Connect(function()
         if open then
             if popup then popup:Destroy(); popup=nil end
-            _cpActive = nil
-            open=false; return
+            _cpActive=nil; open=false; return
         end
-        -- Закрыть предыдущий открытый пикер
         if _cpActive and _cpActive ~= popup then
-            pcall(function() _cpActive:Destroy() end)
-            _cpActive = nil
+            pcall(function() _cpActive:Destroy() end); _cpActive=nil
         end
         if not _cpWin then return end
         open=true
 
-        -- Вычисляем абсолютную позицию квадрата относительно Win
         local winAbs  = _cpWin.AbsolutePosition
         local boxAbs  = box.AbsolutePosition
         local boxSize = box.AbsoluteSize
         local px = boxAbs.X - winAbs.X
         local py = boxAbs.Y - winAbs.Y + boxSize.Y + 4
-        -- Не выходим за правый/нижний край
         local popW, popH = 225, 205
-        if px + popW > _cpWin.AbsoluteSize.X - 4 then px = _cpWin.AbsoluteSize.X - popW - 4 end
-        if py + popH > _cpWin.AbsoluteSize.Y - 4 then py = boxAbs.Y - winAbs.Y - popH - 4 end
+        if px+popW > _cpWin.AbsoluteSize.X-4 then px=_cpWin.AbsoluteSize.X-popW-4 end
+        if py+popH > _cpWin.AbsoluteSize.Y-4 then py=boxAbs.Y-winAbs.Y-popH-4 end
 
-        -- Попап рисуется прямо на Win — поверх всего
         popup = New("Frame",{
             Size=UDim2.new(0,popW,0,popH),
             Position=UDim2.new(0,px,0,py),
@@ -188,30 +225,24 @@ local function MakeColorPicker(parent, offX, initColor, onChange)
         Corner(8,popup); Stroke(C.Border,1.5,popup)
         _cpActive = popup
 
-        -- Закрыть по клику вне попапа
         local outsideBtn = New("TextButton",{
             Text="",BackgroundTransparency=1,
             Size=UDim2.new(1,0,1,0),
-            Position=UDim2.new(0,0,0,0),
-            ZIndex=99,
+            Position=UDim2.new(0,0,0,0),ZIndex=99,
         },_cpWin)
         outsideBtn.MouseButton1Click:Connect(function()
             if popup and popup.Parent then popup:Destroy(); popup=nil end
-            outsideBtn:Destroy()
-            _cpActive=nil; open=false
+            outsideBtn:Destroy(); _cpActive=nil; open=false
         end)
         New("TextLabel",{Text="Pick a color:",Font=Enum.Font.GothamBold,TextSize=12,
             TextColor3=C.TextMain,BackgroundTransparency=1,
             Size=UDim2.new(1,-8,0,18),Position=UDim2.new(0,8,0,4),
             TextXAlignment=Enum.TextXAlignment.Left,ZIndex=101},popup)
 
-        -- SV квадрат
         local svW,svH = 148,120
         local svFrame = New("Frame",{
-            Size=UDim2.new(0,svW,0,svH),
-            Position=UDim2.new(0,8,0,26),
-            BackgroundColor3=Color3.fromHSV(hue,1,1),
-            BorderSizePixel=0, ZIndex=101,
+            Size=UDim2.new(0,svW,0,svH),Position=UDim2.new(0,8,0,26),
+            BackgroundColor3=Color3.fromHSV(hue,1,1),BorderSizePixel=0,ZIndex=101,
         },popup)
         Corner(4,svFrame)
         New("UIGradient",{
@@ -219,27 +250,22 @@ local function MakeColorPicker(parent, offX, initColor, onChange)
             Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0),NumberSequenceKeypoint.new(1,1)}),
             Rotation=0,
         },svFrame)
-        local svDark = New("Frame",{Size=UDim2.new(1,0,1,0),BackgroundColor3=Color3.new(0,0,0),BorderSizePixel=0,ZIndex=102},svFrame)
+        local svDark=New("Frame",{Size=UDim2.new(1,0,1,0),BackgroundColor3=Color3.new(0,0,0),BorderSizePixel=0,ZIndex=102},svFrame)
         Corner(4,svDark)
         New("UIGradient",{
             Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(0,0,0)),ColorSequenceKeypoint.new(1,Color3.new(0,0,0))}),
             Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(1,0)}),
             Rotation=90,
         },svDark)
-        local svCursor = New("Frame",{
-            Size=UDim2.new(0,10,0,10),
-            Position=UDim2.new(sat,-5,1-val2,-5),
-            BackgroundColor3=Color3.new(1,1,1),
-            BorderSizePixel=0,ZIndex=105,
+        local svCursor=New("Frame",{
+            Size=UDim2.new(0,10,0,10),Position=UDim2.new(sat,-5,1-val2,-5),
+            BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,ZIndex=105,
         },svFrame)
         Corner(5,svCursor); Stroke(Color3.new(0,0,0),1.5,svCursor)
 
-        -- Hue слайдер
-        local hueFrame = New("Frame",{
-            Size=UDim2.new(0,14,0,svH),
-            Position=UDim2.new(0,svW+14,0,26),
-            BackgroundColor3=Color3.new(1,1,1),
-            BorderSizePixel=0,ZIndex=101,
+        local hueFrame=New("Frame",{
+            Size=UDim2.new(0,14,0,svH),Position=UDim2.new(0,svW+14,0,26),
+            BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,ZIndex=101,
         },popup)
         Corner(4,hueFrame)
         New("UIGradient",{
@@ -253,14 +279,13 @@ local function MakeColorPicker(parent, offX, initColor, onChange)
                 ColorSequenceKeypoint.new(1,    Color3.fromHSV(1,1,1)),
             }),Rotation=90,
         },hueFrame)
-        local hueCursor = New("Frame",{
+        local hueCursor=New("Frame",{
             Size=UDim2.new(1,4,0,3),Position=UDim2.new(0,-2,hue,-1),
             BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,ZIndex=105,
         },hueFrame)
         Stroke(Color3.new(0,0,0),1,hueCursor)
 
-        -- Превью + HEX + RGB
-        local preview = New("Frame",{
+        local preview=New("Frame",{
             Size=UDim2.new(0,14,0,14),Position=UDim2.new(0,svW+14,0,svH+32),
             BackgroundColor3=color,BorderSizePixel=0,ZIndex=101,
         },popup)
@@ -288,7 +313,6 @@ local function MakeColorPicker(parent, offX, initColor, onChange)
             hexLbl.Text=toHex(c); rgbLbl.Text=fmtRGB(c)
         end
 
-        -- SV drag
         local svDrag=false
         local svBtn=New("TextButton",{Text="",BackgroundTransparency=1,Size=UDim2.new(1,0,1,0),ZIndex=106},svFrame)
         local function doSV(i)
@@ -301,7 +325,6 @@ local function MakeColorPicker(parent, offX, initColor, onChange)
         UserInputService.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then svDrag=false end end)
         UserInputService.InputChanged:Connect(function(i) if svDrag and i.UserInputType==Enum.UserInputType.MouseMovement then doSV(i) end end)
 
-        -- Hue drag
         local hueDrag=false
         local hueBtn=New("TextButton",{Text="",BackgroundTransparency=1,Size=UDim2.new(1,0,1,0),ZIndex=106},hueFrame)
         local function doHue(i)
@@ -317,26 +340,21 @@ local function MakeColorPicker(parent, offX, initColor, onChange)
     return box
 end
 
-local function MakeColorBox(parent, color)
-    local box = New("Frame",{Size=UDim2.new(0,14,0,14),BackgroundColor3=color or C.Accent,BorderSizePixel=0},parent)
-    Corner(3,box); Stroke(C.KbtnBorder,1,box); return box
-end
-
 -- ============================================================
 --  ОКНО
 -- ============================================================
 function MatrixHub.new()
-    local self=setmetatable({},MatrixHub)
-    self.Tabs={};self.ActiveTab=nil;self.Visible=true
+    local self = setmetatable({},MatrixHub)
+    self.Tabs={}; self.ActiveTab=nil; self.Visible=true
 
-    local Gui=New("ScreenGui",{Name="MatrixHubUI",ResetOnSpawn=false,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},
+    local Gui = New("ScreenGui",{Name="MatrixHubUI",ResetOnSpawn=false,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},
         game:GetService("CoreGui") or LocalPlayer:FindFirstChildOfClass("PlayerGui"))
 
-    local Win=New("Frame",{Size=UDim2.new(0,692,0,600),Position=UDim2.new(0.5,-346,0.5,-300),
+    local Win = New("Frame",{Size=UDim2.new(0,692,0,600),Position=UDim2.new(0.5,-346,0.5,-300),
         BackgroundColor3=C.WinBG,BorderSizePixel=0,ClipsDescendants=false},Gui)
     Corner(12,Win); Stroke(C.Border,1.5,Win)
     self.Gui=Gui; self.Win=Win
-    _cpWin = Win  -- для колорпикера
+    _cpWin=Win
 
     local Header=New("Frame",{Size=UDim2.new(1,0,0,62),BackgroundColor3=C.HeaderBG,BorderSizePixel=0},Win)
     Corner(12,Header)
@@ -422,15 +440,9 @@ function MatrixHub:_Activate(tab)
     end
     tab.ScrollL.Visible=true
     if tab.fullWidth then
-        -- Полная ширина: расширяем ContentL и скрываем ContentR
-        self.ContentL.Size=UDim2.new(1,0,1,0)
-        self.ContentR.Visible=false
-        tab.ScrollR.Visible=false
+        self.ContentL.Size=UDim2.new(1,0,1,0); self.ContentR.Visible=false; tab.ScrollR.Visible=false
     else
-        -- Обычный режим: две колонки
-        self.ContentL.Size=UDim2.new(0.5,-1,1,0)
-        self.ContentR.Visible=true
-        tab.ScrollR.Visible=true
+        self.ContentL.Size=UDim2.new(0.5,-1,1,0); self.ContentR.Visible=true; tab.ScrollR.Visible=true
     end
     Tween(tab.Btn,{TextColor3=C.TabActive},0.12)
     Tween(tab.Line,{Size=UDim2.new(1,0,0,2)},0.18,Enum.EasingStyle.Back)
@@ -487,22 +499,18 @@ end
 
 -- ============================================================
 --  KEYBIND TOGGLE
---  Layout справа налево: [Toggle-48] [KbBtn-90] [ColorPicker-118]
+--  Поддержка: Keyboard, MB1-MB5 (Forward/Back мышь)
 -- ============================================================
 function MatrixHub:AddKeybindToggle(tab,label,default,cb,col,initColor,onColorChange)
     local r=MakeRow(tab,nil,col); local state=default or false
     local binding=false; local boundKey=nil
     Label(r,label)
 
-    -- Колорпикер левее кейбинда (если передан цвет)
     if initColor then
         MakeColorPicker(r,-118,initColor,onColorChange)
     end
 
-    -- Кнопка кейбинда
     local kbWrap,kbIcon,kbTxt,kbClick=MakeKeybindBtn(r,-90)
-
-    -- Тогл
     local bg,knob=MakeToggle(r,state,-48)
 
     local function DoToggle()
@@ -514,28 +522,13 @@ function MatrixHub:AddKeybindToggle(tab,label,default,cb,col,initColor,onColorCh
 
     kbClick.MouseButton1Click:Connect(function()
         if binding then return end
-        binding=true
-        kbTxt.Text="..."; kbTxt.TextColor3=C.TextMuted
+        binding=true; kbTxt.Text="..."; kbTxt.TextColor3=C.TextMuted
         Stroke(C.Accent,1,kbWrap)
         local conn; conn=UserInputService.InputBegan:Connect(function(inp)
-            local name
-            if inp.UserInputType==Enum.UserInputType.Keyboard then
-                if inp.KeyCode==Enum.KeyCode.Escape then
-                    -- Esc = сброс привязки
-                    boundKey=nil; kbTxt.Text="None"; kbTxt.TextColor3=C.TextMuted
-                    binding=false; conn:Disconnect()
-                    for _,s in ipairs(kbWrap:GetChildren()) do if s:IsA("UIStroke") then s.Color=C.KbtnBorder end end
-                    return
-                end
-                local n=tostring(inp.KeyCode):sub(14); name=#n<=3 and n or n:sub(1,3); boundKey=inp.KeyCode
-            elseif inp.UserInputType==Enum.UserInputType.MouseButton1 then name="MB1"; boundKey="MB1"
-            elseif inp.UserInputType==Enum.UserInputType.MouseButton2 then name="MB2"; boundKey="MB2"
-            elseif inp.UserInputType==Enum.UserInputType.MouseButton3 then name="MB3"; boundKey="MB3"
-            elseif inp.UserInputType==Enum.UserInputType.MouseButton4 then name="MB4"; boundKey="MB4"
-            elseif inp.UserInputType==Enum.UserInputType.MouseButton5 then name="MB5"; boundKey="MB5"
-            else return end
+            local name,key = GetInputName(inp)
+            if not name then return end
             kbTxt.Text=name; kbTxt.TextColor3=C.Accent
-            binding=false; conn:Disconnect()
+            boundKey=key; binding=false; conn:Disconnect()
             for _,s in ipairs(kbWrap:GetChildren()) do if s:IsA("UIStroke") then s.Color=C.KbtnBorder end end
         end)
     end)
@@ -545,19 +538,15 @@ function MatrixHub:AddKeybindToggle(tab,label,default,cb,col,initColor,onColorCh
 
     UserInputService.InputBegan:Connect(function(inp)
         if binding then return end
-        local isKey = inp.UserInputType==Enum.UserInputType.Keyboard and inp.KeyCode==boundKey
-        local isMB2 = inp.UserInputType==Enum.UserInputType.MouseButton2 and boundKey=="MB2"
-        local isMB3 = inp.UserInputType==Enum.UserInputType.MouseButton3 and boundKey=="MB3"
-        local isMB4 = inp.UserInputType==Enum.UserInputType.MouseButton4 and boundKey=="MB4"
-        local isMB5 = inp.UserInputType==Enum.UserInputType.MouseButton5 and boundKey=="MB5"
-        if isKey or isMB2 or isMB3 or isMB4 or isMB5 then DoToggle() end
+        if InputMatchesKey(inp,boundKey) then DoToggle() end
     end)
+
     return {Get=function() return state end}
 end
 
 -- ============================================================
 --  KEYBIND с режимами Toggle / Hold / Always
---  Layout справа налево: [Toggle -48] [KbBtn -90] [ModeBtn -150]
+--  Поддержка: Keyboard, MB1-MB5 (Forward/Back мышь)
 -- ============================================================
 function MatrixHub:AddKeybind(tab,label,default,cb,col)
     local r=MakeRow(tab,nil,col); local state=default or false
@@ -565,7 +554,6 @@ function MatrixHub:AddKeybind(tab,label,default,cb,col)
     local modes={"Toggle","Hold","Always"}; local modeIdx=1
     Label(r,label)
 
-    -- Кнопка режима
     local modeBg=New("Frame",{Size=UDim2.new(0,52,0,20),Position=UDim2.new(1,-150,0.5,-10),
         BackgroundColor3=C.KbtnBG,BorderSizePixel=0},r)
     Corner(5,modeBg); Stroke(C.KbtnBorder,1,modeBg)
@@ -573,10 +561,7 @@ function MatrixHub:AddKeybind(tab,label,default,cb,col)
         TextColor3=C.Accent,BackgroundTransparency=1,Size=UDim2.new(1,0,1,0)},modeBg)
     local modeClick=New("TextButton",{Text="",BackgroundTransparency=1,Size=UDim2.new(1,0,1,0),ZIndex=5},modeBg)
 
-    -- Кнопка кейбинда
     local kbWrap,kbIcon,kbTxt,kbClick=MakeKeybindBtn(r,-90)
-
-    -- Тогл
     local bg,knob=MakeToggle(r,state,-48)
 
     local function SetState(v)
@@ -599,61 +584,29 @@ function MatrixHub:AddKeybind(tab,label,default,cb,col)
 
     kbClick.MouseButton1Click:Connect(function()
         if binding then return end
-        binding=true
-        kbTxt.Text="..."; kbTxt.TextColor3=C.TextMuted
+        binding=true; kbTxt.Text="..."; kbTxt.TextColor3=C.TextMuted
         Stroke(C.Accent,1,kbWrap)
         local conn; conn=UserInputService.InputBegan:Connect(function(inp)
-            local name
-            if inp.UserInputType==Enum.UserInputType.Keyboard then
-                if inp.KeyCode==Enum.KeyCode.Escape then
-                    boundKey=nil; kbTxt.Text="None"; kbTxt.TextColor3=C.TextMuted
-                    binding=false; conn:Disconnect()
-                    for _,s in ipairs(kbWrap:GetChildren()) do if s:IsA("UIStroke") then s.Color=C.KbtnBorder end end
-                    return
-                end
-                local n=tostring(inp.KeyCode):sub(14); name=#n<=3 and n or n:sub(1,3); boundKey=inp.KeyCode
-            elseif inp.UserInputType==Enum.UserInputType.MouseButton1 then name="MB1"; boundKey="MB1"
-            elseif inp.UserInputType==Enum.UserInputType.MouseButton2 then name="MB2"; boundKey="MB2"
-            elseif inp.UserInputType==Enum.UserInputType.MouseButton3 then name="MB3"; boundKey="MB3"
-            elseif inp.UserInputType==Enum.UserInputType.MouseButton4 then name="MB4"; boundKey="MB4"
-            elseif inp.UserInputType==Enum.UserInputType.MouseButton5 then name="MB5"; boundKey="MB5"
-            else return end
+            local name,key = GetInputName(inp)
+            if not name then return end
             kbTxt.Text=name; kbTxt.TextColor3=C.Accent
-            binding=false; conn:Disconnect()
+            boundKey=key; binding=false; conn:Disconnect()
             for _,s in ipairs(kbWrap:GetChildren()) do if s:IsA("UIStroke") then s.Color=C.KbtnBorder end end
         end)
     end)
 
-    local function keyActive(k)
-        if not k then return false end
-        if k=="MB1" then return UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
-        elseif k=="MB2" then return UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
-        elseif k=="MB3" then return UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton3)
-        elseif k=="MB4" then return UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton4)
-        elseif k=="MB5" then return UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton5)
-        else return UserInputService:IsKeyDown(k) end
-    end
-
     UserInputService.InputBegan:Connect(function(inp)
         if binding then return end
-        local isKey = inp.UserInputType==Enum.UserInputType.Keyboard and inp.KeyCode==boundKey
-        local isMB1 = inp.UserInputType==Enum.UserInputType.MouseButton1 and boundKey=="MB1"
-        local isMB2 = inp.UserInputType==Enum.UserInputType.MouseButton2 and boundKey=="MB2"
-        local isMB4 = inp.UserInputType==Enum.UserInputType.MouseButton4 and boundKey=="MB4"
-        local isMB5 = inp.UserInputType==Enum.UserInputType.MouseButton5 and boundKey=="MB5"
-        if not (isKey or isMB1 or isMB2 or isMB4 or isMB5) then return end
-        if modes[modeIdx]=="Toggle" then SetState(not state) elseif modes[modeIdx]=="Hold" then SetState(true) end
+        if not InputMatchesKey(inp,boundKey) then return end
+        if modes[modeIdx]=="Toggle" then SetState(not state)
+        elseif modes[modeIdx]=="Hold" then SetState(true) end
     end)
     UserInputService.InputEnded:Connect(function(inp)
         if binding then return end
-        local isKey = inp.UserInputType==Enum.UserInputType.Keyboard and inp.KeyCode==boundKey
-        local isMB1 = inp.UserInputType==Enum.UserInputType.MouseButton1 and boundKey=="MB1"
-        local isMB2 = inp.UserInputType==Enum.UserInputType.MouseButton2 and boundKey=="MB2"
-        local isMB4 = inp.UserInputType==Enum.UserInputType.MouseButton4 and boundKey=="MB4"
-        local isMB5 = inp.UserInputType==Enum.UserInputType.MouseButton5 and boundKey=="MB5"
-        if not (isKey or isMB1 or isMB2 or isMB4 or isMB5) then return end
+        if not InputMatchesKey(inp,boundKey) then return end
         if modes[modeIdx]=="Hold" then SetState(false) end
     end)
+
     return {Get=function() return state end, GetMode=function() return modes[modeIdx] end}
 end
 
@@ -686,7 +639,7 @@ function MatrixHub:AddSlider(tab,label,min,max,default,cb,col)
     local numBG=New("Frame",{Size=UDim2.new(0,34,0,24),Position=UDim2.new(1,-126,0.5,-12),BackgroundColor3=C.NumBG,BorderSizePixel=0},r)
     Corner(5,numBG); Stroke(C.KbtnBorder,1,numBG)
     local numLbl=New("TextLabel",{Text=tostring(val),Font=Enum.Font.GothamBold,TextSize=12,TextColor3=C.TextMain,BackgroundTransparency=1,Size=UDim2.new(1,0,1,0)},numBG)
-    local function MakeBtn(sym,offX)
+    local function MkBtn(sym,offX)
         local b=New("TextButton",{Text=sym,Font=Enum.Font.GothamBold,TextSize=16,TextColor3=Color3.new(1,1,1),
             BackgroundColor3=C.Accent,Size=UDim2.new(0,26,0,24),Position=UDim2.new(1,offX,0.5,-12),
             BorderSizePixel=0,AutoButtonColor=false},r)
@@ -695,7 +648,7 @@ function MatrixHub:AddSlider(tab,label,min,max,default,cb,col)
         b.MouseLeave:Connect(function() Tween(b,{BackgroundColor3=C.Accent},0.1) end)
         return b
     end
-    local minusBtn=MakeBtn("−",-68); local plusBtn=MakeBtn("+",-34)
+    local minusBtn=MkBtn("−",-68); local plusBtn=MkBtn("+",-34)
     local sr=MakeRow(tab,26,col)
     local track=New("Frame",{Size=UDim2.new(1,-20,0,6),Position=UDim2.new(0,10,0.5,-3),BackgroundColor3=C.SliderTrack,BorderSizePixel=0},sr)
     Corner(3,track)
@@ -741,27 +694,65 @@ function MatrixHub:AddSeparator(tab,title,col)
     end
 end
 
+-- ============================================================
+--  КНОПКА КЕЙБИНДА ДЛЯ AIMBOT (расширенная версия)
+--  Поддерживает: Keyboard, MB1-MB5 (Forward/Back)
+-- ============================================================
+function MatrixHub:MakeKeyBind(parent, offX, w, onSet)
+    local kf=New("Frame",{Size=UDim2.new(0,w or 72,0,24),Position=UDim2.new(1,offX,0.5,-12),
+        BackgroundColor3=C.KbtnBG,BorderSizePixel=0,ZIndex=3},parent)
+    Corner(5,kf); Stroke(C.KbtnBorder,1,kf)
+    local kt=New("TextLabel",{Text="None",Font=Enum.Font.GothamBold,TextSize=11,
+        TextColor3=C.TextMuted,BackgroundTransparency=1,Size=UDim2.new(1,0,1,0),ZIndex=4},kf)
+    local kb=New("TextButton",{Text="",BackgroundTransparency=1,Size=UDim2.new(1,0,1,0),ZIndex=5},kf)
+    local binding=false
+    kb.MouseButton1Click:Connect(function()
+        if binding then return end; binding=true; kt.Text="..."; kt.TextColor3=C.TextMuted
+        Stroke(C.Accent,1,kf)
+        local conn; conn=UserInputService.InputBegan:Connect(function(inp)
+            local name,key = GetInputName(inp)
+            if not name then return end
+            kt.Text=name; kt.TextColor3=C.Accent; binding=false; conn:Disconnect()
+            for _,s in ipairs(kf:GetChildren()) do if s:IsA("UIStroke") then s.Color=C.KbtnBorder end end
+            if onSet then onSet(key) end
+        end)
+    end)
+    return kf
+end
+
+-- ============================================================
+--  ВКЛЮЧЕНИЕ КЛАВИШИ ПЕРЕКЛЮЧЕНИЯ ОКНА
+--  Поддержка: Keyboard, MB4 (Forward), MB5 (Back)
+-- ============================================================
 function MatrixHub:EnableToggleKey(key)
-    key=key or Enum.KeyCode.Insert
+    key = key or Enum.KeyCode.Insert
     UserInputService.InputBegan:Connect(function(i)
-        if i.KeyCode==key then self.Visible=not self.Visible; self.Win.Visible=self.Visible end
+        local match = false
+        if type(key) == "string" then
+            -- Forward/Back мышь
+            if key=="MB4" and i.UserInputType==Enum.UserInputType.MouseButton4 then match=true
+            elseif key=="MB5" and i.UserInputType==Enum.UserInputType.MouseButton5 then match=true end
+        else
+            if i.KeyCode == key then match=true end
+        end
+        if match then
+            self.Visible=not self.Visible
+            self.Win.Visible=self.Visible
+        end
     end)
 end
 
-
--- Экспортируем внутренние хелперы и сервисы для main-скрипта
-MatrixHub._New             = New
-MatrixHub._Corner          = Corner
-MatrixHub._Stroke          = Stroke
-MatrixHub._Tween           = Tween
-MatrixHub._C               = C
-MatrixHub._MakeRow         = MakeRow
+-- Экспортируем вспомогательные функции для использования в основном скрипте
+MatrixHub._MakeRow       = MakeRow
+MatrixHub._Label         = Label
 MatrixHub._MakeColorPicker = MakeColorPicker
-MatrixHub._Players         = Players
-MatrixHub._LocalPlayer     = LocalPlayer
-MatrixHub._Camera          = Camera
-MatrixHub._RunService      = RunService
-MatrixHub._UserInputService= UserInputService
-MatrixHub._Lighting        = Lighting
+MatrixHub._IsKeyActive   = IsKeyActive
+MatrixHub._InputMatchesKey = InputMatchesKey
+MatrixHub._GetInputName  = GetInputName
+MatrixHub._New           = New
+MatrixHub._Corner        = Corner
+MatrixHub._Stroke        = Stroke
+MatrixHub._Tween         = Tween
+MatrixHub._C             = C
 
 return MatrixHub
