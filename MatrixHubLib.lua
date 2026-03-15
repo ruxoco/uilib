@@ -111,8 +111,16 @@ local function MakeKeybindBtn(parent, offX)
 end
 
 -- Определение имени клавиши/кнопки мыши для отображения в кейбинде
+-- ВАЖНО: В Roblox Forward/Back кнопки мыши приходят как KeyCode,
+-- а не как отдельный UserInputType (MouseButton4/5 не существуют)
 local function GetInputName(inp)
     if inp.UserInputType == Enum.UserInputType.Keyboard then
+        -- Проверяем Forward / Back кнопки мыши (приходят как KeyCode при Keyboard)
+        if inp.KeyCode == Enum.KeyCode.MouseButton4 then
+            return "FWD", "MB4"
+        elseif inp.KeyCode == Enum.KeyCode.MouseButton5 then
+            return "BCK", "MB5"
+        end
         local n = tostring(inp.KeyCode):sub(14)
         return (#n<=3 and n or n:sub(1,3)), inp.KeyCode
     elseif inp.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -121,12 +129,6 @@ local function GetInputName(inp)
         return "MB2", "MB2"
     elseif inp.UserInputType == Enum.UserInputType.MouseButton3 then
         return "MB3", "MB3"
-    elseif inp.UserInputType == Enum.UserInputType.MouseButton4 then
-        -- Forward кнопка мыши
-        return "FWD", "MB4"
-    elseif inp.UserInputType == Enum.UserInputType.MouseButton5 then
-        -- Back кнопка мыши
-        return "BCK", "MB5"
     end
     return nil, nil
 end
@@ -137,8 +139,8 @@ local function IsKeyActive(key)
     if key == "MB1" then return UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
     elseif key == "MB2" then return UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
     elseif key == "MB3" then return UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton3)
-    elseif key == "MB4" then return UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton4)
-    elseif key == "MB5" then return UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton5)
+    elseif key == "MB4" then return UserInputService:IsKeyDown(Enum.KeyCode.MouseButton4)
+    elseif key == "MB5" then return UserInputService:IsKeyDown(Enum.KeyCode.MouseButton5)
     else return UserInputService:IsKeyDown(key) end
 end
 
@@ -148,9 +150,13 @@ local function InputMatchesKey(inp, key)
     if key == "MB1" then return inp.UserInputType == Enum.UserInputType.MouseButton1
     elseif key == "MB2" then return inp.UserInputType == Enum.UserInputType.MouseButton2
     elseif key == "MB3" then return inp.UserInputType == Enum.UserInputType.MouseButton3
-    elseif key == "MB4" then return inp.UserInputType == Enum.UserInputType.MouseButton4
-    elseif key == "MB5" then return inp.UserInputType == Enum.UserInputType.MouseButton5
-    else return inp.UserInputType == Enum.UserInputType.Keyboard and inp.KeyCode == key end
+    elseif key == "MB4" then
+        return inp.UserInputType == Enum.UserInputType.Keyboard and inp.KeyCode == Enum.KeyCode.MouseButton4
+    elseif key == "MB5" then
+        return inp.UserInputType == Enum.UserInputType.Keyboard and inp.KeyCode == Enum.KeyCode.MouseButton5
+    else
+        return inp.UserInputType == Enum.UserInputType.Keyboard and inp.KeyCode == key
+    end
 end
 
 -- ============================================================
