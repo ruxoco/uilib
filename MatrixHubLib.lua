@@ -735,9 +735,13 @@ function MatrixHub:EnableToggleKey(key)
     UserInputService.InputBegan:Connect(function(i)
         local match = false
         if type(key) == "string" then
-            -- Forward/Back мышь
-            if key=="MB4" and i.UserInputType==Enum.UserInputType.MouseButton4 then match=true
-            elseif key=="MB5" and i.UserInputType==Enum.UserInputType.MouseButton5 then match=true end
+            -- MB4/MB5 (Forward/Back) приходят как KeyCode, не как UserInputType
+            if key=="MB4" and i.UserInputType==Enum.UserInputType.Keyboard and i.KeyCode==Enum.KeyCode.MouseButton4 then match=true
+            elseif key=="MB5" and i.UserInputType==Enum.UserInputType.Keyboard and i.KeyCode==Enum.KeyCode.MouseButton5 then match=true
+            elseif key=="MB1" and i.UserInputType==Enum.UserInputType.MouseButton1 then match=true
+            elseif key=="MB2" and i.UserInputType==Enum.UserInputType.MouseButton2 then match=true
+            elseif key=="MB3" and i.UserInputType==Enum.UserInputType.MouseButton3 then match=true
+            end
         else
             if i.KeyCode == key then match=true end
         end
